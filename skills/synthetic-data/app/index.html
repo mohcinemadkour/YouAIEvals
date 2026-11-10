@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Synthetic Data Review</title>
+<style>
+  :root { --bg:#f6f4ef; --ink:#1b1e23; --muted:#5b616b; --line:#e1ddd4; --card:#fff;
+          --accent:#c85a1e; --blue:#2d5fb8; --ok:#2f7d4f; --bad:#b3322a; --warn:#b7791f; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.5 Inter, system-ui, -apple-system, Segoe UI, Arial, sans-serif; background:var(--bg); color:var(--ink); }
+  header { position:sticky; top:0; z-index:5; background:#15181d; color:#f3f1ec; display:flex; align-items:center; gap:24px; padding:12px 24px; }
+  header h1 { font-size:17px; margin:0; font-weight:700; }
+  header .product { color:#9aa1ab; font-size:13px; }
+  nav { display:flex; gap:4px; margin-left:auto; }
+  nav button { background:transparent; color:#c9cdd3; border:0; padding:8px 14px; border-radius:8px; cursor:pointer; font:inherit; }
+  nav button.on { background:#2a3038; color:#fff; }
+  nav .count { display:inline-block; min-width:20px; padding:0 6px; margin-left:6px; border-radius:10px; background:#3a414b; font-size:12px; }
+  main { max-width:1200px; margin:0 auto; padding:24px; }
+  h2 { font-size:20px; margin:0 0 4px; }
+  .sub { color:var(--muted); margin:0 0 20px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:14px; }
+  .chip { display:inline-block; padding:2px 10px; border-radius:999px; font-size:13px; margin:2px 4px 2px 0; border:1px solid transparent; }
+  .hyp { font-size:12px; font-weight:700; color:var(--accent); background:#fbe3c8; border-radius:6px; padding:1px 7px; margin-right:6px; }
+  table { width:100%; border-collapse:collapse; background:var(--card); border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { background:#f1eee8; font-size:13px; color:var(--muted); font-weight:600; }
+  tr.rejected td { opacity:.45; }
+  select { font:inherit; font-size:13px; padding:2px 6px; border:1px solid var(--line); border-radius:6px; background:#fff; }
+  .btn { font:inherit; font-size:13px; padding:4px 10px; border-radius:6px; border:1px solid var(--line); background:#fff; cursor:pointer; }
+  .btn.ok.on { background:var(--ok); color:#fff; border-color:var(--ok); }
+  .btn.bad.on { background:var(--bad); color:#fff; border-color:var(--bad); }
+  .btn.primary { background:var(--accent); color:#fff; border-color:var(--accent); padding:8px 16px; font-size:15px; }
+  .toolbar { display:flex; gap:10px; align-items:center; margin:0 0 14px; flex-wrap:wrap; }
+  .heat { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:14px; margin-bottom:22px; }
+  .bar { display:flex; align-items:center; gap:8px; font-size:13px; margin:4px 0; }
+  .bar .lbl { width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .bar .track { flex:1; height:12px; background:#f1eee8; border-radius:6px; overflow:hidden; }
+  .bar .fill { height:100%; border-radius:6px; }
+  .bar .n { width:28px; text-align:right; color:var(--muted); }
+  .q { display:flex; flex-direction:column; gap:10px; }
+  .q.fake { opacity:.55; }
+  .qtext { font-size:16px; line-height:1.5; padding:10px 12px; background:#faf8f4; border-left:4px solid var(--blue); border-radius:6px; white-space:pre-wrap; }
+  .q textarea, .q input { width:100%; font:inherit; font-size:13px; padding:6px 8px; border:1px solid var(--line); border-radius:6px; }
+  .empty { padding:40px; text-align:center; color:var(--muted); background:var(--card); border:1px dashed var(--line); border-radius:12px; }
+  .toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:#15181d; color:#fff; padding:10px 18px; border-radius:8px; opacity:0; transition:opacity .3s; pointer-events:none; }
+  .toast.show { opacity:1; }
+  .note { font-size:13px; color:var(--muted); }
+  .warnline { color:var(--warn); font-weight:600; }
+  pre { background:#15181d; color:#f3f1ec; padding:12px 14px; border-radius:8px; overflow:auto; font-size:13px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Synthetic Data Review</h1>
+  <span class="product" id="product"></span>
+  <nav id="nav"></nav>
+</header>
+<main id="view"></main>
+<div class="toast" id="toast"></div>
+
+<script>
+const TABS = [["dims","1 · Dimensions"],["tuples","2 · Tuples"],["queries","3 · Queries"],["export","4 · Export"]];
+const PALETTE = ["#e3ecfa","#fbe3c8","#e2f0e7","#efe3f6","#fde7e4","#e4f2f5","#f4efd9"];
+const INK = ["#2d5fb8","#a3670f","#2f7d4f","#6b4fb3","#b3322a","#1f7a8c","#7a6512"];
+let S = { version:null, dimensions:{hypotheses:[],dimensions:[]}, tuples:[], queries:[] };
+let tab = location.hash.slice(1) || "dims";
+let filter = "all";
+
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function toast(msg){ const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),2200); }
+function dimIndex(name){ return S.dimensions.dimensions.findIndex(d=>d.name===name); }
+function chip(dim,val){ const i=Math.max(0,dimIndex(dim))%PALETTE.length; return `<span class="chip" style="background:${PALETTE[i]};color:${INK[i]}" title="${esc(dim)}">${esc(val)}</span>`; }
+
+async function load(){
+  const r = await fetch("/api/state"); S = await r.json();
+  document.getElementById("product").textContent = S.dimensions.product || "";
+  render();
+}
+async function poll(){
+  try { const r = await fetch("/api/version"); const {version} = await r.json();
+    if (version !== S.version){ const first = S.version===null; await load(); if(!first) toast("Updated by the agent"); } } catch(e){}
+}
+async function review(kind,id,patch){
+  const r = await fetch("/api/review",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({kind,id,...patch})});
+  if(!r.ok){ toast("Save failed"); return; }
+  const {version} = await r.json();
+  const item = S[kind].find(x=>x.id===id);
+  if(patch.values){ Object.assign(item.values, patch.values); item.source="human-edited"; delete patch.values; }
+  Object.assign(item, patch); S.version = version; render();
+}
+
+function renderNav(){
+  const c = { tuples:S.tuples.filter(t=>!t.status||t.status==="pending").length, queries:S.queries.filter(q=>!q.status).length };
+  document.getElementById("nav").innerHTML = TABS.map(([k,l])=>`<button class="${k===tab?"on":""}" onclick="go('${k}')">${l}${c[k]?`<span class="count">${c[k]}</span>`:""}</button>`).join("");
+}
+function go(k){ tab=k; location.hash=k; render(); window.scrollTo(0,0); }
+
+function viewDims(){
+  const D = S.dimensions;
+  if(!D.dimensions.length) return `<div class="empty">No dimensions yet. The agent will propose them in the chat; they appear here once you approve them.</div>`;
+  const hyp = Object.fromEntries((D.hypotheses||[]).map(h=>[h.id,h.text]));
+  return `<h2>Dimensions</h2><p class="sub">Each dimension is one way user requests differ, chosen to test a failure hypothesis. Edit them in the chat with the agent.</p>
+  <div class="card" style="margin-bottom:16px"><b>Failure hypotheses</b>${(D.hypotheses||[]).map(h=>`<div style="margin-top:6px"><span class="hyp">${esc(h.id)}</span>${esc(h.text)}</div>`).join("")||'<p class="note">None recorded.</p>'}</div>
+  <div class="grid">${D.dimensions.map(d=>`<div class="card"><h3 style="margin:0 0 6px;font-size:16px">${esc(d.name)}</h3>
+    <div class="note" style="margin-bottom:8px">Tests: ${(d.tests||[]).map(t=>`<span class="hyp" title="${esc(hyp[t]||"")}">${esc(t)}</span>`).join("")||"—"}</div>
+    ${(d.values||[]).map(v=>chip(d.name,v)).join("")}</div>`).join("")}</div>`;
+}
+
+function coverage(){
+  const ok = S.tuples.filter(t=>t.status!=="rejected");
+  return `<div class="heat">${S.dimensions.dimensions.map(d=>{
+    const counts = (d.values||[]).map(v=>[v, ok.filter(t=>t.values?.[d.name]===v).length]);
+    const max = Math.max(1,...counts.map(c=>c[1]));
+    const i = dimIndex(d.name)%INK.length;
+    return `<div class="card"><b style="font-size:14px">${esc(d.name)}</b>${counts.map(([v,n])=>`<div class="bar"><span class="lbl" title="${esc(v)}">${esc(v)}</span><span class="track"><span class="fill" style="display:block;width:${n/max*100}%;background:${n===0?"var(--bad)":INK[i]}"></span></span><span class="n">${n}</span></div>`).join("")}
+    ${counts.some(c=>c[1]===0)?`<div class="warnline" style="font-size:12px;margin-top:6px">Missing values: ask the agent to add tuples</div>`:""}</div>`;}).join("")}</div>`;
+}
+function viewTuples(){
+  if(!S.tuples.length) return `<div class="empty">No tuples yet. The agent writes the first ones with you in the chat.</div>`;
+  const dims = S.dimensions.dimensions;
+  const rows = S.tuples.filter(t=> filter==="all" || (t.status||"pending")===filter);
+  const n = s => S.tuples.filter(t=>(t.status||"pending")===s).length;
+  return `<h2>Tuples</h2><p class="sub">One value per dimension = the recipe for one test query. Approve, reject, or change a value. Rejected tuples are not turned into queries.</p>
+  <h3 style="font-size:15px;margin:0 0 8px">Coverage (approved + pending)</h3>${coverage()}
+  <div class="toolbar">Show:
+    ${["all","pending","approved","rejected"].map(f=>`<button class="btn ${filter===f?"ok on":""}" onclick="filter='${f}';render()">${f} (${f==="all"?S.tuples.length:n(f)})</button>`).join("")}
+  </div>
+  <table><tr><th>#</th>${dims.map(d=>`<th>${esc(d.name)}</th>`).join("")}<th>Why it's interesting</th><th>Source</th><th>Decision</th></tr>
+  ${rows.map(t=>`<tr class="${t.status==="rejected"?"rejected":""}"><td>${esc(t.id)}</td>
+    ${dims.map(d=>`<td><select onchange="review('tuples','${esc(t.id)}',{values:{[${JSON.stringify(d.name).replace(/"/g,"&quot;")}]:this.value}})">${(d.values||[]).map(v=>`<option ${t.values?.[d.name]===v?"selected":""}>${esc(v)}</option>`).join("")}</select></td>`).join("")}
+    <td class="note">${esc(t.note)}</td><td class="note">${esc(t.source||"")}</td>
+    <td style="white-space:nowrap"><button class="btn ok ${t.status==="approved"?"on":""}" onclick="review('tuples','${esc(t.id)}',{status:'approved'})">✓</button>
+      <button class="btn bad ${t.status==="rejected"?"on":""}" onclick="review('tuples','${esc(t.id)}',{status:'rejected'})">✗</button></td></tr>`).join("")}</table>`;
+}
+
+function viewQueries(){
+  if(!S.queries.length) return `<div class="empty">No queries yet. After the tuples are approved and scaled up, the agent turns each one into a natural-language query and they appear here.</div>`;
+  const tmap = Object.fromEntries(S.tuples.map(t=>[t.id,t]));
+  const real = S.queries.filter(q=>q.status==="real").length, fake = S.queries.filter(q=>q.status==="fake").length;
+  return `<h2>Queries</h2><p class="sub">Does each one sound like something a real user would actually send? Mark the fake-sounding ones; the agent regenerates them.</p>
+  <div class="toolbar"><span class="note">${real} real · ${fake} fake · ${S.queries.length-real-fake} to review</span></div>
+  <div class="grid">${S.queries.map(q=>{ const t=tmap[q.tuple_id]||{values:{}}; return `<div class="card q ${q.status==="fake"?"fake":""}">
+    <div>${Object.entries(t.values||{}).map(([d,v])=>chip(d,v)).join("")}<span class="note"> ${esc(q.id)}</span></div>
+    <div class="qtext">${esc(q.query)}</div>
+    <div class="toolbar" style="margin:0"><button class="btn ok ${q.status==="real"?"on":""}" onclick="review('queries','${esc(q.id)}',{status:'real'})">Sounds real</button>
+      <button class="btn bad ${q.status==="fake"?"on":""}" onclick="review('queries','${esc(q.id)}',{status:'fake'})">Sounds fake</button></div>
+    <input placeholder="Optional note for the agent, e.g. 'too polite', 'users never say this'" value="${esc(q.note||"")}" onchange="review('queries','${esc(q.id)}',{note:this.value})">
+  </div>`;}).join("")}</div>`;
+}
+
+function viewExport(){
+  const keep = S.queries.filter(q=>q.status!=="fake" && (S.tuples.find(t=>t.id===q.tuple_id)||{}).status!=="rejected");
+  const unrev = S.queries.filter(q=>!q.status).length;
+  return `<h2>Export</h2><p class="sub">Write the kept queries to <code>queries.jsonl</code>, run them through your real system, then review the traces.</p>
+  <div class="card" style="margin-bottom:16px"><p style="margin:0 0 10px"><b>${keep.length}</b> queries will be exported${unrev?` <span class="warnline">(${unrev} not reviewed yet)</span>`:""}.</p>
+  <button class="btn primary" onclick="doExport()">Write queries.jsonl</button> <span id="exp" class="note"></span></div>
+  <div class="card"><b>Next steps</b><ol style="margin:8px 0 0;padding-left:20px">
+    <li>Run every query through your <b>real</b> system (not a mock) and save the full traces.</li>
+    <li>Review the traces with the <b>error-discovery</b> skill. Annotate at least 30 yourself.</li>
+    <li>Remember: synthetic data can't tell you how common a failure is in production. Compare with real data as soon as you have it.</li></ol></div>`;
+}
+async function doExport(){ const r=await fetch("/api/export"); const j=await r.json(); document.getElementById("exp").textContent=`Wrote ${j.count} queries to ${j.written}`; toast("Exported"); }
+
+function render(){
+  renderNav();
+  document.getElementById("view").innerHTML = ({dims:viewDims,tuples:viewTuples,queries:viewQueries,export:viewExport}[tab]||viewDims)();
+}
+window.addEventListener("hashchange", ()=>{ const k=location.hash.slice(1)||"dims"; if(k!==tab){ tab=k; render(); } });
+load(); setInterval(poll, 2500);
+</script>
+</body>
+</html>
