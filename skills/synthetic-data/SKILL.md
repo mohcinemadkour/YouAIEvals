@@ -12,6 +12,18 @@ This skill is meant for interactive sessions only. Never invent the dimensions o
 The method follows Hamel Husain and Shreya Shankar's guide, "What is the best approach for generating synthetic data?":
 https://hamel.dev/blog/posts/evals-faq/what-is-the-best-approach-for-generating-synthetic-data.html
 
+### How the phases map to the guide
+
+| Guide step | Phase in this skill |
+|---|---|
+| 1. Define dimensions, starting from failure hypotheses (if you lack intuition, use the application yourself) | Phase 1 (understand the product) + Phase 2 (dimensions) |
+| 2. Write about 20 tuples by hand | Phase 3 |
+| 5. Fix obvious problems first (fix the prompt instead of generating specialized test queries) | Phase 4, done before scaling so no queries are generated for problems already known |
+| 3. Generate tuples at scale (cross product then filter, or direct LLM generation) | Phase 5 |
+| 4. Convert tuples to natural language in a separate prompt | Phase 6 |
+| 6. Run the queries through the real system, ~100 diverse traces, annotate at least 30 yourself | Phase 7 (hand-off to `error-discovery`) |
+| Warnings: unstructured "give me test queries" prompts; synthetic data can't show production prevalence; compare with real data | Core ideas + Phase 7 |
+
 ## Core ideas to explain to the user (in plain words, once, at the start)
 
 - A **dimension** is one way user requests differ from each other, chosen because you suspect the system may fail along it. Example for a support bot: Issue Type, Customer Mood, Prior Context.
