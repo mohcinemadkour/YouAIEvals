@@ -12,6 +12,18 @@ This skill is meant for interactive sessions only. Never invent the dimensions o
 The method follows Hamel Husain and Shreya Shankar's guide, "What is the best approach for generating synthetic data?":
 https://hamel.dev/blog/posts/evals-faq/what-is-the-best-approach-for-generating-synthetic-data.html
 
+## Scope and data rules (always apply)
+
+This skill produces **synthetic queries only**. Follow these rules in every phase:
+
+1. **Questions only, no answers.** Generate user queries (inputs). Never write the system's answers, "expected outputs" or labels. Answers must come from running the real system; labels come from human review in error analysis.
+2. **Never present real data as synthetic.** Real conversations, traces or tickets the user shares are context for Phase 1 (understanding the product and forming failure hypotheses) only. Never copy them, lightly reword them, or include them in `tuples.json`, `queries.json` or `queries.jsonl`.
+3. **No personal data from real records.** Generated queries must not contain names, emails, phone numbers, order IDs, addresses or other identifying details taken from real data. Invent clearly fictional details when a query needs them.
+4. **Never modify the user's real data.** Read it only. Write only inside the `synthetic_data/` folder.
+5. **Label everything.** Every tuple and query you create carries `"synthetic": true`, and the export keeps that flag, so synthetic items can never be mixed up with real traces later.
+
+If the user asks you to generate answers, or to mix real records into the synthetic set, explain these rules and suggest the right path: run the queries through the real system for answers, and review real traces directly with the `error-discovery` skill.
+
 ### How the phases map to the guide
 
 | Guide step | Phase in this skill |
@@ -50,9 +62,10 @@ Everything lives in a `synthetic_data/` folder in the user's project. Use JSON (
    "dimensions": [{"name": "mood", "tests": ["H2"], "values": ["calm", "confused", "angry"]}]}
   ```
 - `tuples.json`: a list of
-  `{"id": "t01", "values": {"mood": "angry", ...}, "note": "why it's interesting", "hypotheses": ["H1"], "source": "agent|human|cross-product", "status": "pending|approved|rejected"}`
+  `{"id": "t01", "values": {"mood": "angry", ...}, "note": "why it's interesting", "hypotheses": ["H1"], "source": "agent|human|cross-product", "status": "pending|approved|rejected", "synthetic": true}`
 - `queries.json`: a list of
-  `{"id": "q001", "tuple_id": "t01", "query": "...", "status": "real|fake" (set by the reviewer), "note": "reviewer note"}`
+  `{"id": "q001", "tuple_id": "t01", "query": "...", "status": "real|fake" (set by the reviewer), "note": "reviewer note", "synthetic": true}`
+  ("real/fake" here means "sounds like a real user or not"; every query in this file is synthetic.)
 - `queries.jsonl`: final export, one approved query per line (written by the app's Export button, or by you).
 - `fix_first.md`: prompt problems to fix before testing (if any).
 
@@ -134,7 +147,7 @@ Skip rejected tuples. Write `queries.json`. Ask the user to review them (Queries
 
 ## Phase 7: Hand off
 
-1. Export: the user clicks Export in the app, or you write `queries.jsonl` yourself (approved queries only, one JSON object per line with `id`, `tuple`, `query`, `hypotheses`).
+1. Export: the user clicks Export in the app, or you write `queries.jsonl` yourself (approved queries only, one JSON object per line with `id`, `tuple`, `query`, `hypotheses`, `"synthetic": true`).
 2. Explain how to run `queries.jsonl` through the **real system** (not a mock) and capture full traces. If you have access to the system or an API endpoint, offer to write the runner script; otherwise give clear instructions.
 3. Point to the next step: review the traces with the `error-discovery` skill. Annotate at least 30 traces yourself before trusting agent suggestions.
 4. End with these honest limits, in your own words:

@@ -90,7 +90,8 @@ class Handler(BaseHTTPRequestHandler):
                     if t.get("status") == "rejected":
                         continue
                     rows.append({"id": q["id"], "tuple": t.get("values", {}), "query": q["query"],
-                                 "hypotheses": t.get("hypotheses", []), "review": q.get("status", "unreviewed")})
+                                 "hypotheses": t.get("hypotheses", []), "review": q.get("status", "unreviewed"),
+                                 "synthetic": True})
                 os.makedirs(DATA, exist_ok=True)
                 out = os.path.join(DATA, "queries.jsonl")
                 with open(out, "w") as f:

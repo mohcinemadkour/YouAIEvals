@@ -34,7 +34,12 @@ https://hamel.dev/blog/posts/evals-faq/what-is-the-best-approach-for-generating-
      and give me the URL to open.
    - Chat-only: do all the reviews in this conversation; don't start the app.
 
-4. Save everything in a synthetic_data/ folder, and at the end give me
+4. Generate synthetic QUESTIONS only: no answers or expected outputs,
+   never copy or reword my real conversations into the generated set,
+   no personal details from real data, and label every item "synthetic": true
+   (see "Scope and data rules" in SKILL.md).
+
+5. Save everything in a synthetic_data/ folder, and at the end give me
    queries.jsonl as a file I can download.
 
 About my product:

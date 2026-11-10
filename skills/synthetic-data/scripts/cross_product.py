@@ -4,7 +4,7 @@ Usage:
     python cross_product.py synthetic_data/dimensions.json synthetic_data/tuples_generated.json [--sample N] [--seed 0]
 
 Writes a JSON list of tuples in the review app's format
-({"id", "values", "source": "cross-product", "status": "pending"}).
+({"id", "values", "source": "cross-product", "status": "pending", "synthetic": True}).
 With --sample, draws N combinations so that every value of every dimension
 appears at least once (when N allows), then fills the rest at random.
 Standard library only. Filter invalid combinations afterwards, then merge
@@ -48,7 +48,7 @@ def main():
         print(f"sampled {len(combos)}")
 
     tuples = [{"id": f"{args.id_prefix}{i:03d}", "values": dict(zip(names, c)),
-               "source": "cross-product", "status": "pending"} for i, c in enumerate(combos, 1)]
+               "source": "cross-product", "status": "pending", "synthetic": True} for i, c in enumerate(combos, 1)]
     with open(args.out, "w") as f:
         json.dump(tuples, f, indent=2, ensure_ascii=False)
     print(f"wrote {args.out}")
